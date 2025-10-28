@@ -1,332 +1,68 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Warehouse Shelf Scanner — Demo</title>
-  <!-- ZXing for barcode scanning -->
+  <meta charset="utf-8">
+  <title>HairHouse Inventory Scanner</title>
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0"></script>
-  <!-- SheetJS for Excel export -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.20.2/dist/xlsx.full.min.js"></script>
   <style>
-    :root { --bg:#0b0f14; --card:#121824; --text:#e7eefb; --muted:#93a2b7; --accent:#3b82f6; --ok:#10b981; --warn:#f59e0b; --err:#ef4444; }
-    *{box-sizing:border-box}
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial; background:var(--bg); color:var(--text)}
-    .container{max-width:980px;margin:0 auto;padding:16px}
-    .grid{display:grid;gap:16px}
-    .card{background:var(--card);border-radius:16px;padding:16px; box-shadow:0 8px 24px rgba(0,0,0,.3)}
-    h1{font-size:1.4rem;margin:0 0 8px}
-    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-    input,select,button{height:44px;border-radius:12px;border:1px solid #223044;background:#0f1622;color:var(--text);padding:0 12px;font-size:16px}
-    button{cursor:pointer;border:none;background:var(--accent);color:white;font-weight:600; padding:0 16px}
-    button.secondary{background:#223044}
-    button.ghost{background:transparent;border:1px solid #223044}
-    button.ok{background:var(--ok)}
-    button.warn{background:var(--warn)}
-    button.err{background:var(--err)}
-    .grow{flex:1}
-    .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid #223044;background:#0f1622;color:var(--muted);font-size:12px}
-    .muted{color:var(--muted)}
-    video{width:100%;border-radius:12px;background:#000}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:10px;border-bottom:1px solid #223044;text-align:left}
-    .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#0f1622;border:1px solid #223044;color:var(--text);padding:12px 16px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:50;display:none}
-    .kpi{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-    .kpi .card{padding:12px}
-    .kpi h3{margin:4px 0;font-size:14px;color:var(--muted)}
-    .kpi p{margin:0;font-size:20px;font-weight:700}
-    @media (max-width:720px){.kpi{grid-template-columns:1fr}}
-    <style>
-    :root { --bg:#0b0f14; --card:#121824; --text:#e7eefb; --muted:#93a2b7; --accent:#3b82f6; --ok:#10b981; --warn:#f59e0b; --err:#ef4444; }
-    *{box-sizing:border-box}
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,\"Helvetica Neue\",Arial; background:var(--bg); color:var(--text)}
-    .container{max-width:980px;margin:0 auto;padding:16px}
-    .grid{display:grid;gap:16px}
-    .card{background:var(--card);border-radius:16px;padding:16px; box-shadow:0 8px 24px rgba(0,0,0,.3)}
-    h1{font-size:1.4rem;margin:0 0 8px}
-    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-    input,select,button{height:44px;border-radius:12px;border:1px solid #223044;background:#0f1622;color:var(--text);padding:0 12px;font-size:16px}
-    button{cursor:pointer;border:none;background:var(--accent);color:white;font-weight:600; padding:0 16px}
-    button.secondary{background:#223044}
-    button.ghost{background:transparent;border:1px solid #223044}
-    button.ok{background:var(--ok)}
-    button.warn{background:var(--warn)}
-    button.err{background:var(--err)}
-    .grow{flex:1}
-    .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid #223044;background:#0f1622;color:var(--muted);font-size:12px}
-    .muted{color:var(--muted)}
-    video{width:100%;border-radius:12px;background:#000}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:10px;border-bottom:1px solid #223044;text-align:left}
-    .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#0f1622;border:1px solid #223044;color:var(--text);padding:12px 16px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:50;display:none}
-    .kpi{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-    .kpi .card{padding:12px}
-    .kpi h3{margin:4px 0;font-size:14px;color:var(--muted)}
-    .kpi p{margin:0;font-size:20px;font-weight:700}
-    @media (max-width:720px){.kpi{grid-template-columns:1fr}}
-    .status{margin-top:8px; font-size:12px; color:var(--muted)}
-    .status.ok{color:#8be28b}
-    .status.err{color:#ff8a8a}
+    body { font-family: sans-serif; background:#0b0f14; color:white; padding:20px; }
+    button { margin:5px; padding:10px 20px; border:none; border-radius:8px; }
+    #video { width:100%; max-width:480px; border:2px solid #555; border-radius:8px; }
   </style>
 </head>
 <body>
-  <div class="container grid">
-    <header class="card">
-      <h1>📦 Warehouse Shelf Scanner — Demo</h1>
-      <p class="muted">Scan retail-style barcodes with your phone camera. Add/Remove to shelves, view live inventory, and download to Excel. Data is stored in your browser (localStorage) for the demo.</p>
-      <div class="kpi">
-        <div class="card"><h3>Total Shelves</h3><p id="kpi-shelves">0</p></div>
-        <div class="card"><h3>Total Items</h3><p id="kpi-items">0</p></div>
-        <div class="card"><h3>Unique SKUs</h3><p id="kpi-skus">0</p></div>
-      </div>
-    </header>
+  <h1>HairHouse Inventory Scanner</h1>
+  <p>Scan barcodes to add/remove items directly to your HairHouseData sheet.</p>
 
-    <section class="card">
-      <div class="row" style="gap:8px 12px">
-        <select id="mode">
-          <option value="add">Add</option>
-          <option value="remove">Remove</option>
-        </select>
-        <input id="shelf" class="grow" placeholder="Shelf ID (e.g., A1, B3). Optional for Remove." />
-        <button id="scanBtn">Start Scanner</button>
-        <button id="stopBtn" class="secondary">Stop</button>
-        <button id="manualBtn" class="ghost">Manual Entry</button>
-      </div>
-      <div id=\"videoWrap\" style=\"margin-top:12px;display:none\">
-        <video id=\"video\" muted playsinline></video>
-        <div class=\"row\" style=\"margin-top:8px\">
-          <span class=\"pill\" id=\"camInfo\">Camera: —</span>
-          <span class=\"pill\" id=\"lastScan\">Last scan: —</span>
-        </div>
-        <p id=\"camStatus\" class=\"status\">Camera status: not started.</p>
-      </div>
-    </section>
+  <select id="mode">
+    <option value="ADD">Add</option>
+    <option value="REMOVE">Remove</option>
+  </select>
+  <input id="shelf" placeholder="Shelf (e.g., A1)">
+  <button onclick="startScanner()">Start Scanner</button>
+  <p id="status"></p>
+  <video id="video" playsinline></video>
 
-    <section class="card">
-      <div class="row">
-        <button id="downloadXLSX" class="ok">Download Excel (.xlsx)</button>
-        <button id="downloadCSV" class="secondary">Download CSV</button>
-        <button id="clearAll" class="err">⚠️ Clear Demo Data</button>
-      </div>
-      <p class="muted" style="margin-top:8px">Excel shows the <em>current inventory</em> by Shelf → SKU → Quantity. A separate sheet includes the full activity log.</p>
-    </section>
+  <script>
+  const API = "YOUR_WEB_APP_URL_HERE";     // from Google Apps Script deploy
+  const TOKEN = "super-secret-token";       // same as in Apps Script
 
-    <section class="card">
-      <h2 style="margin-top:0">Live Inventory</h2>
-      <div id="inventoryTable"></div>
-    </section>
+  let codeReader;
 
-    <section class="card">
-      <h2 style="margin-top:0">Activity Log</h2>
-      <div id="logTable"></div>
-    </section>
-  </div>
-
-  <div id="toast" class="toast"></div>
-
-<script>
-// ===== Persistence (localStorage) =====
-const STORAGE_KEY = 'warehouse_demo_v1';
-const state = loadState();
-
-function loadState(){
-  try{ const raw = localStorage.getItem(STORAGE_KEY); return raw? JSON.parse(raw): { shelves:{}, log:[] }; }catch(e){ return { shelves:{}, log:[] }; }
-}
-function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); render();
-// On iOS Safari, audio policy requires a user gesture; our Start button handles this. }
-
-// ===== Helpers =====
-const $ = sel => document.querySelector(sel);
-function toast(msg, tone="info"){ const t=$('#toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none', 1800); }
-function ts(){ return new Date().toISOString(); }
-
-// ===== Inventory Ops =====
-function addItem(shelf, code){
-  if(!shelf){ toast('Enter Shelf ID first (e.g., A1).', 'warn'); return; }
-  shelf = shelf.trim().toUpperCase();
-  if(!state.shelves[shelf]) state.shelves[shelf] = {};
-  state.shelves[shelf][code] = (state.shelves[shelf][code]||0)+1;
-  state.log.unshift({t:ts(), action:'ADD', shelf, code});
-  saveState();
-  toast(`Added ${code} → shelf ${shelf}`);
-}
-function removeItem(code, shelfHint){
-  // If shelf specified, try there first; otherwise search all shelves
-  const tryShelves = shelfHint? [shelfHint.trim().toUpperCase()] : Object.keys(state.shelves);
-  for(const s of tryShelves){
-    const shelfMap = state.shelves[s];
-    if(shelfMap && shelfMap[code]>0){
-      shelfMap[code] -= 1;
-      if(shelfMap[code]===0) delete shelfMap[code];
-      if(Object.keys(shelfMap).length===0) delete state.shelves[s];
-      state.log.unshift({t:ts(), action:'REMOVE', shelf:s, code});
-      saveState();
-      toast(`Removed ${code} from shelf ${s}`);
-      return true;
+  async function startScanner(){
+    try {
+      codeReader = new ZXing.BrowserMultiFormatReader();
+      const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
+      const back = devices.find(d => /back|rear|environment/i.test(d.label)) || devices[0];
+      document.getElementById('status').innerText = 'Camera starting...';
+      codeReader.decodeFromVideoDevice(back.deviceId, 'video', (result, err)=>{
+        if(result){
+          handleScan(result.getText());
+        }
+      });
+    } catch(e){
+      document.getElementById('status').innerText = 'Error starting camera: ' + e;
     }
   }
-  toast(`Item ${code} not found.`, 'warn');
-  return false;
-}
 
-// ===== Rendering =====
-function renderKPIs(){
-  const shelves = Object.keys(state.shelves);
-  const uniqueSKUs = new Set();
-  let total = 0;
-  shelves.forEach(s=>{ const m=state.shelves[s]; Object.entries(m).forEach(([k,v])=>{ uniqueSKUs.add(k); total += v; }); });
-  $('#kpi-shelves').textContent = shelves.length;
-  $('#kpi-items').textContent = total;
-  $('#kpi-skus').textContent = uniqueSKUs.size;
-}
-
-function renderInventory(){
-  const wrap = $('#inventoryTable');
-  const rows = [];
-  Object.keys(state.shelves).sort().forEach(shelf=>{
-    const items = state.shelves[shelf];
-    Object.keys(items).sort().forEach(code=>{
-      rows.push({shelf, code, qty: items[code]});
+  async function handleScan(barcode){
+    const shelf = document.getElementById('shelf').value.trim().toUpperCase();
+    const action = document.getElementById('mode').value;
+    if(!barcode) return;
+    document.getElementById('status').innerText = `Scanned: ${barcode}`;
+    const res = await fetch(API, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ token: TOKEN, action, shelf, barcode })
     });
-  });
-  if(!rows.length){ wrap.innerHTML = '<p class="muted">No items yet. Use the scanner to add items.</p>'; return; }
-  let html = '<table><thead><tr><th>Shelf</th><th>Barcode</th><th>Qty</th></tr></thead><tbody>';
-  rows.forEach(r=>{ html += `<tr><td>${r.shelf}</td><td>${r.code}</td><td>${r.qty}</td></tr>`; });
-  html += '</tbody></table>';
-  wrap.innerHTML = html;
-}
-
-function renderLog(){
-  const wrap = $('#logTable');
-  if(state.log.length===0){ wrap.innerHTML = '<p class="muted">No activity yet.</p>'; return; }
-  let html = '<table><thead><tr><th>Time (UTC)</th><th>Action</th><th>Shelf</th><th>Barcode</th></tr></thead><tbody>';
-  state.log.slice(0,200).forEach(r=>{ html += `<tr><td>${r.t}</td><td>${r.action}</td><td>${r.shelf||''}</td><td>${r.code}</td></tr>`; });
-  html += '</tbody></table>';
-  wrap.innerHTML = html;
-}
-
-function render(){ renderKPIs(); renderInventory(); renderLog(); }
-
-// ===== Barcode Scanner (ZXing) =====
-let codeReader = null; let currentDeviceId = null; let scanning = false;
-
-async function ensureCameraPermission(){
-  try{
-    const s = await navigator.permissions?.query?.({name:'camera'}).catch(()=>null);
-    // iOS Safari doesn't support Permissions API; fallback to getUserMedia prompt
-    if(!s || s.state !== 'granted'){
-      $('#camStatus').textContent = 'Requesting camera permission…';
-      await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
-      $('#camStatus').textContent = 'Camera permission granted.';
-    } else {
-      $('#camStatus').textContent = 'Camera permission already granted.';
-    }
-    return true;
-  } catch(e){
-    console.error('Permission error', e);
-    $('#camStatus').textContent = 'Camera permission denied or unavailable. Check browser settings.';
-    toast('Camera blocked. Allow camera in site settings.', 'err');
-    return false;
+    const data = await res.json();
+    if(data.ok) document.getElementById('status').innerText = `${action} OK: ${barcode}`;
+    else document.getElementById('status').innerText = 'Error: ' + (data.error || 'unknown');
   }
-}
-
-async function startScanner(){
-  if(scanning) return;
-  if(!('mediaDevices' in navigator)){ toast('Camera API not supported on this device.', 'err'); return; }
-  const ok = await ensureCameraPermission();
-  if(!ok) return;
-  try{
-    codeReader = new ZXing.BrowserMultiFormatReader();
-    const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
-    let back = devices.find(d=>/back|rear|environment/i.test(d.label));
-    if(!back && devices[0]) back = devices[0];
-    currentDeviceId = back?.deviceId || undefined;
-    $('#camInfo').textContent = back? `Camera: ${back.label||'Default'}` : 'Camera: default';
-    $('#videoWrap').style.display = 'block';
-    $('#camStatus').textContent = 'Scanner running…';
-    scanning = true;
-
-    if(currentDeviceId){
-      codeReader.decodeFromVideoDevice(currentDeviceId, '#video', onScanCB);
-    } else {
-      // Fallback: constraints without explicit deviceId (helps on iOS)
-      codeReader.decodeFromConstraints({
-        video: { facingMode: { ideal: 'environment' } },
-        audio: false
-      }, '#video', onScanCB);
-    }
-  }catch(e){ 
-    console.error(e); 
-    $('#camStatus').textContent = 'Camera error. Check permissions and reload.';
-    toast('Camera error. Check permissions.', 'err'); 
-  }
-}
-function onScanCB(result, err){
-  if(result){
-    const text = result.getText();
-    $('#lastScan').textContent = `Last scan: ${text}`;
-    handleScan(text);
-  } else if(err && !(err instanceof ZXing.NotFoundException)){
-    // NotFound is expected while scanning; log other errors
-    console.warn(err);
-  }
-}
-
-function stopScanner(){ if(codeReader){ codeReader.reset(); codeReader = null; } scanning=false; $('#camStatus').textContent = 'Scanner stopped.'; }
-
-// ===== Manual Entry =====
-function manualEntry(){
-  const code = prompt('Enter/scan the barcode value:');
-  if(!code) return;
-  const mode = $('#mode').value;
-  const shelf = $('#shelf').value.trim();
-  if(mode==='add') addItem(shelf, code);
-  else removeItem(code, shelf||undefined);
-}
-
-// ===== Downloads =====
-function toInventoryRows(){
-  const rows = [];
-  Object.keys(state.shelves).sort().forEach(shelf=>{
-    const items = state.shelves[shelf];
-    Object.keys(items).sort().forEach(code=>{
-      rows.push({Shelf:shelf, Barcode:code, Quantity:items[code]});
-    });
-  });
-  return rows;
-}
-
-function downloadCSV(){
-  const rows = toInventoryRows();
-  if(rows.length===0){ toast('No inventory to export.', 'warn'); return; }
-  const headers = Object.keys(rows[0]);
-  const csv = [headers.join(',')].concat(rows.map(r=>headers.map(h=>`"${String(r[h]).replace(/"/g,'""')}"`).join(','))).join('\n');
-  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `inventory_${new Date().toISOString().slice(0,19)}.csv`; a.click();
-}
-
-function downloadXLSX(){
-  const inv = toInventoryRows();
-  const log = state.log.map(r=>({Time:r.t, Action:r.action, Shelf:r.shelf||'', Barcode:r.code}));
-  if(inv.length===0 && log.length===0){ toast('Nothing to export yet.', 'warn'); return; }
-  const wb = XLSX.utils.book_new();
-  if(inv.length){ const ws1 = XLSX.utils.json_to_sheet(inv); XLSX.utils.book_append_sheet(wb, ws1, 'Inventory'); }
-  if(log.length){ const ws2 = XLSX.utils.json_to_sheet(log); XLSX.utils.book_append_sheet(wb, ws2, 'Activity Log'); }
-  XLSX.writeFile(wb, `warehouse_${new Date().toISOString().slice(0,19)}.xlsx`);
-}
-
-// ===== UI bindings =====
-$('#scanBtn').addEventListener('click', startScanner);
-$('#stopBtn').addEventListener('click', stopScanner);
-$('#manualBtn').addEventListener('click', manualEntry);
-$('#downloadCSV').addEventListener('click', downloadCSV);
-$('#downloadXLSX').addEventListener('click', downloadXLSX);
-$('#clearAll').addEventListener('click', ()=>{ if(confirm('Clear all demo data?')){ localStorage.removeItem(STORAGE_KEY); location.reload(); } });
-
-render();
-</script>
+  </script>
 </body>
 </html>
+
 
 
 
