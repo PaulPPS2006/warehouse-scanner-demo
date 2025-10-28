@@ -5,33 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>HairHouse Inventory Scanner</title>
 
-  <!-- ZXing barcode library (must load before our code) -->
+  <!-- ZXing barcode library -->
   <script src="https://unpkg.com/@zxing/library@0.20.0"></script>
 
   <style>
-    :root {
-      --bg:#0b0f14; --card:#121824; --text:#e7eefb;
-      --muted:#93a2b7; --accent:#3b82f6;
-    }
+    :root{--bg:#0b0f14;--card:#121824;--text:#e7eefb;--muted:#93a2b7;--accent:#3b82f6}
     *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
-      background:var(--bg);color:var(--text);
-    }
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;background:var(--bg);color:var(--text)}
     .wrap{max-width:900px;margin:0 auto;padding:16px}
     h1{margin:0 0 8px;font-size:22px}
     .row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
-    input,select,button{
-      height:44px;padding:0 12px;border-radius:10px;
-      border:1px solid #263245;background:#0f1622;color:var(--text)
-    }
+    input,select,button{height:44px;padding:0 12px;border-radius:10px;border:1px solid #263245;background:#0f1622;color:var(--text)}
     button{border:none;background:var(--accent);font-weight:600;cursor:pointer}
     button.secondary{background:#223044}
-    #video{
-      width:100%;max-width:520px;
-      border:2px solid #263245;border-radius:12px;background:#000
-    }
+    #video{width:100%;max-width:520px;border:2px solid #263245;border-radius:12px;background:#000}
     table{width:100%;border-collapse:collapse;margin-top:10px}
     th,td{padding:8px;border-bottom:1px solid #263245;text-align:left}
     .muted{color:var(--muted);font-size:12px}
@@ -69,47 +56,58 @@ const API   = "https://script.google.com/macros/s/AKfycbwFrawdai1M0yySzvu2NkMy_a
 const TOKEN = "HairHouse2025";   // must match your Apps Script TOKEN
 
 let codeReader = null;
-
-/* === ELEMENT HELPERS === */
 const statusEl = document.getElementById('status');
 function setStatus(msg){ statusEl.innerText = 'Status: ' + msg; }
 
-/* === CAMERA + SCANNER === */
+/* === CAMERA + SCANNER (iOS-safe) === */
 document.getElementById('start').addEventListener('click', startScanner);
 document.getElementById('stop').addEventListener('click', stopScanner);
 document.getElementById('refresh').addEventListener('click', refreshInventory);
 
 async function startScanner(){
   try{
-    if(typeof ZXing === 'undefined'){
-      setStatus('ZXing failed to load — check internet connection.');
+    if(typeof ZXing === 'undefined'){ setStatus('ZXing failed to load.'); return; }
+    if(!navigator.mediaDevices) throw new Error('Camera API not supported.');
+
+    // 1) Ask for permission explicitly (helps iOS)
+    try {
+      const tmp = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } }, audio: false
+      });
+      // stop temp stream immediately
+      tmp.getTracks().forEach(t=>t.stop());
+    } catch (e) {
+      setStatus('Camera permission denied. Allow camera for this site in Settings.');
       return;
     }
-    if(!navigator.mediaDevices) throw new Error('Camera API not supported on this device.');
+
+    // 2) Start ZXing without listing devices (works on iOS)
     codeReader = new ZXing.BrowserMultiFormatReader();
-    const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
-    const back = devices.find(d=>/back|rear|environment/i.test(d.label)) || devices[0];
-    setStatus('Starting camera...');
-    codeReader.decodeFromVideoDevice(back?.deviceId,'video',(result,err)=>{
-      if(result){
-        const text=result.getText();
-        setStatus('Scanned: '+text);
-        handleScan(text);
+    setStatus('Starting camera…');
+    await codeReader.decodeFromConstraints(
+      { video: { facingMode: { ideal: 'environment' } }, audio: false },
+      'video',
+      (result, err) => {
+        if (result) {
+          const text = result.getText();
+          setStatus('Scanned: ' + text);
+          handleScan(text);
+        }
+        // ignore NotFoundException while scanning
       }
-      // ignore continuous NotFoundException
-    });
+    );
   }catch(e){
-    setStatus('Error starting camera: '+(e.message||e));
+    setStatus('Error starting camera: ' + (e.message || e));
   }
 }
 
 function stopScanner(){
   try{
-    if(codeReader) codeReader.reset();
+    if(codeReader){ codeReader.reset(); }
     const v=document.getElementById('video');
     if(v && v.srcObject){ v.srcObject.getTracks().forEach(t=>t.stop()); v.srcObject=null; }
     setStatus('Scanner stopped.');
-  }catch(e){ setStatus('Stop error: '+(e.message||e)); }
+  }catch(e){ setStatus('Stop error: ' + (e.message || e)); }
 }
 
 /* === BACKEND CALLS === */
@@ -126,8 +124,8 @@ async function handleScan(barcode){
     });
     const data=await res.json();
     if(data.ok){ setStatus(`${action} OK: ${barcode}${shelf?(' → '+shelf):''}`); refreshInventory(); }
-    else setStatus('Error: '+(data.error||'unknown'));
-  }catch(e){ setStatus('Network error: '+(e.message||e)); }
+    else setStatus('Error: ' + (data.error || 'unknown'));
+  }catch(e){ setStatus('Network error: ' + (e.message || e)); }
 }
 
 async function refreshInventory(){
@@ -136,12 +134,12 @@ async function refreshInventory(){
     const data=await res.json();
     renderInventory(data.items||[]);
     setStatus('Inventory refreshed.');
-  }catch(e){ setStatus('Fetch error: '+(e.message||e)); }
+  }catch(e){ setStatus('Fetch error: ' + (e.message || e)); }
 }
 
 function renderInventory(items){
   const container=document.getElementById('inv');
-  if(!items.length){ container.innerHTML='<p class="muted">No items yet.</p>'; return; }
+  if(!items.length){ container.innerHTML='<p class="muted">No data yet.</p>'; return; }
   let html='<table><thead><tr><th>Shelf</th><th>Barcode</th><th>Qty</th></tr></thead><tbody>';
   items.sort((a,b)=>(a.Shelf+a.Barcode).localeCompare(b.Shelf+b.Barcode))
        .forEach(r=>{html+=`<tr><td>${r.Shelf}</td><td>${r.Barcode}</td><td>${r.Quantity}</td></tr>`;});
@@ -149,11 +147,12 @@ function renderInventory(items){
   container.innerHTML=html;
 }
 
-/* Load inventory when page opens */
-window.addEventListener('DOMContentLoaded',refreshInventory);
+/* Load inventory on open */
+window.addEventListener('DOMContentLoaded', refreshInventory);
 </script>
 </body>
 </html>
+
 
 
 
