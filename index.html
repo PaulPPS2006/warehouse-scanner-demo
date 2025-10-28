@@ -36,8 +36,7 @@
     .kpi h3{margin:4px 0;font-size:14px;color:var(--muted)}
     .kpi p{margin:0;font-size:20px;font-weight:700}
     @media (max-width:720px){.kpi{grid-template-columns:1fr}}
-  </style>
-</head>
+    <style>\n    :root { --bg:#0b0f14; --card:#121824; --text:#e7eefb; --muted:#93a2b7; --accent:#3b82f6; --ok:#10b981; --warn:#f59e0b; --err:#ef4444; }\n    *{box-sizing:border-box}\n    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,\"Helvetica Neue\",Arial; background:var(--bg); color:var(--text)}\n    .container{max-width:980px;margin:0 auto;padding:16px}\n    .grid{display:grid;gap:16px}\n    .card{background:var(--card);border-radius:16px;padding:16px; box-shadow:0 8px 24px rgba(0,0,0,.3)}\n    h1{font-size:1.4rem;margin:0 0 8px}\n    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}\n    input,select,button{height:44px;border-radius:12px;border:1px solid #223044;background:#0f1622;color:var(--text);padding:0 12px;font-size:16px}\n    button{cursor:pointer;border:none;background:var(--accent);color:white;font-weight:600; padding:0 16px}\n    button.secondary{background:#223044}\n    button.ghost{background:transparent;border:1px solid #223044}\n    button.ok{background:var(--ok)}\n    button.warn{background:var(--warn)}\n    button.err{background:var(--err)}\n    .grow{flex:1}\n    .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid #223044;background:#0f1622;color:var(--muted);font-size:12px}\n    .muted{color:var(--muted)}\n    video{width:100%;border-radius:12px;background:#000}\n    table{width:100%;border-collapse:collapse}\n    th,td{padding:10px;border-bottom:1px solid #223044;text-align:left}\n    .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#0f1622;border:1px solid #223044;color:var(--text);padding:12px 16px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:50;display:none}\n    .kpi{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}\n    .kpi .card{padding:12px}\n    .kpi h3{margin:4px 0;font-size:14px;color:var(--muted)}\n    .kpi p{margin:0;font-size:20px;font-weight:700}\n    @media (max-width:720px){.kpi{grid-template-columns:1fr}}\n    .status{margin-top:8px; font-size:12px; color:var(--muted)}\n    .status.ok{color:#8be28b}\n    .status.err{color:#ff8a8a}\n  </style>\n</head>
 <body>
   <div class="container grid">
     <header class="card">
@@ -61,14 +60,7 @@
         <button id="stopBtn" class="secondary">Stop</button>
         <button id="manualBtn" class="ghost">Manual Entry</button>
       </div>
-      <div id="videoWrap" style="margin-top:12px;display:none">
-        <video id="video" muted playsinline></video>
-        <div class="row" style="margin-top:8px">
-          <span class="pill" id="camInfo">Camera: —</span>
-          <span class="pill" id="lastScan">Last scan: —</span>
-        </div>
-      </div>
-    </section>
+      <div id=\"videoWrap\" style=\"margin-top:12px;display:none\">\n        <video id=\"video\" muted playsinline></video>\n        <div class=\"row\" style=\"margin-top:8px\">\n          <span class=\"pill\" id=\"camInfo\">Camera: —</span>\n          <span class=\"pill\" id=\"lastScan\">Last scan: —</span>\n        </div>\n        <p id=\"camStatus\" class=\"status\">Camera status: not started.</p>\n      </div>\n    </section>
 
     <section class="card">
       <div class="row">
@@ -100,7 +92,7 @@ const state = loadState();
 function loadState(){
   try{ const raw = localStorage.getItem(STORAGE_KEY); return raw? JSON.parse(raw): { shelves:{}, log:[] }; }catch(e){ return { shelves:{}, log:[] }; }
 }
-function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); render(); }
+function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); render();\n// On iOS Safari, audio policy requires a user gesture; our Start button handles this. }
 
 // ===== Helpers =====
 const $ = sel => document.querySelector(sel);
@@ -174,41 +166,7 @@ function renderLog(){
 
 function render(){ renderKPIs(); renderInventory(); renderLog(); }
 
-// ===== Barcode Scanner (ZXing) =====
-let codeReader = null; let currentDeviceId = null; let scanning = false;
-async function startScanner(){
-  if(scanning) return;
-  try{
-    codeReader = new ZXing.BrowserMultiFormatReader();
-    const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
-    // Prefer back camera if available
-    const back = devices.find(d=>/back|rear|environment/i.test(d.label)) || devices[0];
-    currentDeviceId = back?.deviceId;
-    $('#camInfo').textContent = back? `Camera: ${back.label||'Default'}` : 'Camera: default';
-    $('#videoWrap').style.display = 'block';
-    scanning = true;
-    codeReader.decodeFromVideoDevice(currentDeviceId, '#video', (result, err)=>{
-      if(result){
-        const text = result.getText();
-        $('#lastScan').textContent = `Last scan: ${text}`;
-        handleScan(text);
-      }
-    });
-  }catch(e){ console.error(e); toast('Camera error. Check permissions.', 'err'); }
-}
-function stopScanner(){ if(codeReader){ codeReader.reset(); codeReader = null; } scanning=false; }
-
-function handleScan(code){
-  const mode = $('#mode').value;
-  const shelf = $('#shelf').value.trim();
-  // Debounce rapid duplicate scans by pausing briefly
-  stopScanner();
-  if(mode==='add') addItem(shelf, code);
-  else removeItem(code, shelf||undefined);
-  setTimeout(()=>startScanner(), 500); // resume
-}
-
-// ===== Manual Entry =====
+// ===== Barcode Scanner (ZXing) =====\nlet codeReader = null; let currentDeviceId = null; let scanning = false;\n\nasync function ensureCameraPermission(){\n  try{\n    const s = await navigator.permissions?.query?.({name:'camera'}).catch(()=>null);\n    // iOS Safari doesn't support Permissions API; fallback to getUserMedia prompt\n    if(!s || s.state !== 'granted'){\n      $('#camStatus').textContent = 'Requesting camera permission…';\n      await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });\n      $('#camStatus').textContent = 'Camera permission granted.';\n    } else {\n      $('#camStatus').textContent = 'Camera permission already granted.';\n    }\n    return true;\n  } catch(e){\n    console.error('Permission error', e);\n    $('#camStatus').textContent = 'Camera permission denied or unavailable. Check browser settings.';\n    toast('Camera blocked. Allow camera in site settings.', 'err');\n    return false;\n  }\n}\n\nasync function startScanner(){\n  if(scanning) return;\n  if(!('mediaDevices' in navigator)){ toast('Camera API not supported on this device.', 'err'); return; }\n  const ok = await ensureCameraPermission();\n  if(!ok) return;\n  try{\n    codeReader = new ZXing.BrowserMultiFormatReader();\n    const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();\n    let back = devices.find(d=>/back|rear|environment/i.test(d.label));\n    if(!back && devices[0]) back = devices[0];\n    currentDeviceId = back?.deviceId || undefined;\n    $('#camInfo').textContent = back? `Camera: ${back.label||'Default'}` : 'Camera: default';\n    $('#videoWrap').style.display = 'block';\n    $('#camStatus').textContent = 'Scanner running…';\n    scanning = true;\n\n    if(currentDeviceId){\n      codeReader.decodeFromVideoDevice(currentDeviceId, '#video', onScanCB);\n    } else {\n      // Fallback: constraints without explicit deviceId (helps on iOS)\n      codeReader.decodeFromConstraints({\n        video: { facingMode: { ideal: 'environment' } },\n        audio: false\n      }, '#video', onScanCB);\n    }\n  }catch(e){ \n    console.error(e); \n    $('#camStatus').textContent = 'Camera error. Check permissions and reload.';\n    toast('Camera error. Check permissions.', 'err'); \n  }\n}\nfunction onScanCB(result, err){\n  if(result){\n    const text = result.getText();\n    $('#lastScan').textContent = `Last scan: ${text}`;\n    handleScan(text);\n  } else if(err && !(err instanceof ZXing.NotFoundException)){\n    // NotFound is expected while scanning; log other errors\n    console.warn(err);\n  }\n}\n\nfunction stopScanner(){ if(codeReader){ codeReader.reset(); codeReader = null; } scanning=false; $('#camStatus').textContent = 'Scanner stopped.'; }\n\n// ===== Manual Entry =====
 function manualEntry(){
   const code = prompt('Enter/scan the barcode value:');
   if(!code) return;
@@ -261,3 +219,4 @@ render();
 </script>
 </body>
 </html>
+
