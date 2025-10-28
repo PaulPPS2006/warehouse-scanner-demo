@@ -1,67 +1,156 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   <title>HairHouse Inventory Scanner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- ZXing for barcode scanning -->
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0"></script>
   <style>
-    body { font-family: sans-serif; background:#0b0f14; color:white; padding:20px; }
-    button { margin:5px; padding:10px 20px; border:none; border-radius:8px; }
-    #video { width:100%; max-width:480px; border:2px solid #555; border-radius:8px; }
+    :root{--bg:#0b0f14;--card:#121824;--text:#e7eefb;--muted:#93a2b7;--accent:#3b82f6}
+    *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;background:var(--bg);color:var(--text)}
+    .wrap{max-width:900px;margin:0 auto;padding:16px}
+    h1{margin:0 0 8px;font-size:20px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+    input,select,button{height:44px;padding:0 12px;border-radius:10px;border:1px solid #263245;background:#0f1622;color:var(--text)}
+    button{border:none;background:var(--accent);font-weight:600;cursor:pointer}
+    button.secondary{background:#223044}
+    #video{width:100%;max-width:520px;border:2px solid #263245;border-radius:12px;background:#000}
+    table{width:100%;border-collapse:collapse;margin-top:10px} th,td{padding:8px;border-bottom:1px solid #263245;text-align:left}
+    .muted{color:var(--muted);font-size:12px}
+    .card{background:#121824;border-radius:14px;padding:12px;margin-top:12px}
   </style>
 </head>
 <body>
+<div class="wrap">
   <h1>HairHouse Inventory Scanner</h1>
-  <p>Scan barcodes to add/remove items directly to your HairHouseData sheet.</p>
+  <p class="muted">Scan barcodes to add/remove items in your <b>HairHouseData</b> Google Sheet.</p>
 
-  <select id="mode">
-    <option value="ADD">Add</option>
-    <option value="REMOVE">Remove</option>
-  </select>
-  <input id="shelf" placeholder="Shelf (e.g., A1)">
-  <button onclick="startScanner()">Start Scanner</button>
-  <p id="status"></p>
-  <video id="video" playsinline></video>
+  <div class="row">
+    <select id="mode">
+      <option value="ADD">Add</option>
+      <option value="REMOVE">Remove</option>
+    </select>
+    <input id="shelf" placeholder="Shelf (e.g., A1)" />
+    <button id="start">Start Scanner</button>
+    <button id="stop" class="secondary">Stop</button>
+    <button id="refresh" class="secondary">Refresh Inventory</button>
+  </div>
 
-  <script>
-  const API = "YOUR_WEB_APP_URL_HERE";     // from Google Apps Script deploy
-  const TOKEN = "super-secret-token";       // same as in Apps Script
+  <p id="status" class="muted">Status: idle</p>
+  <video id="video" playsinline muted></video>
 
-  let codeReader;
+  <div class="card">
+    <h3 style="margin:0 0 6px">Inventory</h3>
+    <div id="inv" class="muted">No data yet.</div>
+  </div>
+</div>
 
-  async function startScanner(){
-    try {
-      codeReader = new ZXing.BrowserMultiFormatReader();
-      const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
-      const back = devices.find(d => /back|rear|environment/i.test(d.label)) || devices[0];
-      document.getElementById('status').innerText = 'Camera starting...';
-      codeReader.decodeFromVideoDevice(back.deviceId, 'video', (result, err)=>{
-        if(result){
-          handleScan(result.getText());
-        }
-      });
-    } catch(e){
-      document.getElementById('status').innerText = 'Error starting camera: ' + e;
-    }
+<script>
+/* ====== CONFIG — set these ====== */
+const API   = "https://script.google.com/macros/s/AKfycbwFrawdai1M0yySzvu2NkMy_aqafbIUAxGjAWv6Im0UD1lhE6QZNGopkjQUBnH9Xr0Q/exec"; // your Web App URL
+const TOKEN = "HairHouse2025"; // <-- set to the SAME token you put in Apps Script
+
+/* ====== Camera + Scanner ====== */
+let codeReader = null;
+
+document.getElementById('start').addEventListener('click', startScanner);
+document.getElementById('stop').addEventListener('click', stopScanner);
+document.getElementById('refresh').addEventListener('click', refreshInventory);
+
+function setStatus(msg){ document.getElementById('status').innerText = 'Status: ' + msg; }
+
+async function startScanner(){
+  try{
+    if (!navigator.mediaDevices) throw new Error('Camera API not supported on this device/browser.');
+    codeReader = new ZXing.BrowserMultiFormatReader();
+    const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
+    // Prefer the back camera when available
+    const back = devices.find(d=>/back|rear|environment/i.test(d.label)) || devices[0];
+    setStatus('Starting camera…');
+    codeReader.decodeFromVideoDevice(back?.deviceId, 'video', (result, err) => {
+      if (result) {
+        const text = result.getText();
+        setStatus('Scanned: ' + text);
+        handleScan(text);
+      }
+      // ignore NotFoundException while scanning
+    });
+  }catch(e){
+    setStatus('Camera error: ' + (e?.message || e));
+  }
+}
+
+function stopScanner(){
+  try{
+    if (codeReader) codeReader.reset();
+    const v = document.getElementById('video');
+    if (v && v.srcObject){ v.srcObject.getTracks().forEach(t=>t.stop()); v.srcObject = null; }
+    setStatus('Scanner stopped.');
+  }catch(e){
+    setStatus('Stop error: ' + (e?.message || e));
+  }
+}
+
+/* ====== Backend calls ====== */
+async function handleScan(barcode){
+  const shelf = document.getElementById('shelf').value.trim().toUpperCase();
+  const action = document.getElementById('mode').value;
+
+  if (action === 'ADD' && !shelf){
+    setStatus('Enter a shelf (e.g., A1) before adding.');
+    return;
   }
 
-  async function handleScan(barcode){
-    const shelf = document.getElementById('shelf').value.trim().toUpperCase();
-    const action = document.getElementById('mode').value;
-    if(!barcode) return;
-    document.getElementById('status').innerText = `Scanned: ${barcode}`;
+  try{
     const res = await fetch(API, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: TOKEN, action, shelf, barcode })
     });
     const data = await res.json();
-    if(data.ok) document.getElementById('status').innerText = `${action} OK: ${barcode}`;
-    else document.getElementById('status').innerText = 'Error: ' + (data.error || 'unknown');
+    if (data.ok){
+      setStatus(`${action} OK: ${barcode}${shelf?(' → '+shelf):''}`);
+      refreshInventory();
+    } else {
+      setStatus('Error: ' + (data.error || 'unknown'));
+    }
+  }catch(e){
+    setStatus('Network error: ' + (e?.message || e));
   }
-  </script>
+}
+
+async function refreshInventory(){
+  try{
+    const res = await fetch(`${API}?token=${encodeURIComponent(TOKEN)}`);
+    const data = await res.json(); // {items:[{Shelf,Barcode,Quantity}]}
+    renderInventory(data.items || []);
+    setStatus('Inventory refreshed.');
+  }catch(e){
+    setStatus('Fetch error: ' + (e?.message || e));
+  }
+}
+
+function renderInventory(items){
+  const container = document.getElementById('inv');
+  if (!items.length){
+    container.innerHTML = '<p class="muted">No items yet.</p>';
+    return;
+  }
+  let html = '<table><thead><tr><th>Shelf</th><th>Barcode</th><th>Qty</th></tr></thead><tbody>';
+  items
+    .sort((a,b)=> (a.Shelf+a.Barcode).localeCompare(b.Shelf+b.Barcode))
+    .forEach(r => { html += `<tr><td>${r.Shelf}</td><td>${r.Barcode}</td><td>${r.Quantity}</td></tr>`; });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+/* Load inventory once on open */
+refreshInventory();
+</script>
 </body>
 </html>
+
 
 
 
